@@ -1,6 +1,8 @@
 package config
 
 import (
+	"github.com/bmatcuk/doublestar/v4"
+	"path/filepath"
 	"strings"
 
 	"github.com/yoheimuta/protolint/internal/filepathutil"
@@ -8,7 +10,8 @@ import (
 
 // Directories represents the target directories.
 type Directories struct {
-	Exclude []string `yaml:"exclude"`
+	Exclude        []string `yaml:"exclude"`
+	ExcludePattern []string `yaml:"exclude_pattern"`
 }
 
 func (d Directories) shouldSkipRule(
@@ -19,6 +22,15 @@ func (d Directories) shouldSkipRule(
 			exclude += string(filepathutil.OSPathSeparator)
 		}
 		if filepathutil.HasUnixPathPrefix(displayPath, exclude) {
+			return true
+		}
+	}
+	for _, exclude := range d.ExcludePattern {
+		if !strings.HasSuffix(exclude, "/**/") {
+			exclude += "/**/"
+		}
+		isMatch, err := doublestar.Match(exclude, filepath.Dir(filepathutil.ConvertToUnixPath(displayPath))+"/")
+		if err == nil && isMatch {
 			return true
 		}
 	}
