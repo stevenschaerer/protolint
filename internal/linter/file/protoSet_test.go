@@ -148,7 +148,7 @@ func TestCollectAllProtoFiles_Excludes(t *testing.T) {
 		}
 		skipped := make(map[string]bool)
 		for _, p := range paths {
-			joinedPath := path.Join(p...)
+			joinedPath := strings.ReplaceAll(path.Join(p...), "/", string(os.PathSeparator))
 
 			// TODO: improve skipping dirs (by using a tree structure?)
 			for skippedPath := range skipped {
