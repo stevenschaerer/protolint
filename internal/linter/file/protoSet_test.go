@@ -2,13 +2,14 @@ package file
 
 import (
 	"errors"
-	"github.com/yoheimuta/protolint/internal/linter/config"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yoheimuta/protolint/internal/linter/config"
 
 	"github.com/yoheimuta/protolint/internal/setting_test"
 )
@@ -215,8 +216,8 @@ func TestCollectAllProtoFiles_Excludes(t *testing.T) {
 
 			for i, gotf := range got {
 				wantf := NewProtoFile(
-					filepath.Join(absPath, test.expected[i]),
-					filepath.Join(strings.Replace(absPath, absWorkDirPath+string(os.PathSeparator), "", 1), test.expected[i]),
+					strings.ReplaceAll(filepath.Join(absPath, test.expected[i]), "/", string(os.PathSeparator)),
+					strings.ReplaceAll(filepath.Join(strings.Replace(absPath, absWorkDirPath+string(os.PathSeparator), "", 1), test.expected[i]), "/", string(os.PathSeparator)),
 				)
 				if gotf.Path() != wantf.Path() {
 					t.Errorf("got %v, but want %v", gotf.Path(), wantf.Path())

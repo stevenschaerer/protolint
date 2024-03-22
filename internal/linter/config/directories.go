@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/bmatcuk/doublestar/v4"
 	"strings"
+
+	"github.com/bmatcuk/doublestar/v4"
 
 	"github.com/yoheimuta/protolint/internal/filepathutil"
 )
