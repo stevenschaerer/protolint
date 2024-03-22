@@ -18,6 +18,16 @@ lint:
       # NOTE: UNIX paths will be properly accepted by both UNIX and Windows.
       - path/to/file
 
+    # Unix style glob patterns to exclude files or directories. Accepts
+    #   * to match any sequence of non-path-separators
+    #   ** to match zero or more directories
+    #   [class] to match any single non-path-separator character against a class of characters
+    #   {alt1,...} to match a sequence of characters if one of the comma-separated alternatives matches.
+    # See https://github.com/bmatcuk/doublestar for more information.
+    exclude_pattern:
+      - dir1/**
+      - "**/file*.proto"
+
   # Linter directories to walk.
   directories:
     # The specific directories to exclude.

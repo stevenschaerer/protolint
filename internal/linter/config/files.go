@@ -12,7 +12,7 @@ type Files struct {
 	ExcludePattern []string `yaml:"exclude_pattern"`
 }
 
-func (d Files) shouldSkipRule(
+func (d Files) ShouldSkip(
 	displayPath string,
 ) bool {
 	if stringsutil.ContainsCrossPlatformPathInSlice(displayPath, d.Exclude) {

@@ -27,8 +27,6 @@ func (c ExternalConfig) ShouldSkipRule(
 ) bool {
 	lint := c.Lint
 	return lint.Ignores.shouldSkipRule(ruleID, displayPath) ||
-		lint.Files.shouldSkipRule(displayPath) ||
-		lint.Directories.shouldSkipRule(displayPath) ||
 		lint.Rules.shouldSkipRule(ruleID, defaultRuleIDs)
 }
 
