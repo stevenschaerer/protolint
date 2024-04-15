@@ -21,6 +21,9 @@ func (d Directories) ShouldSkip(
 		displayPath += string(filepathutil.OSPathSeparator)
 	}
 	for _, exclude := range d.Exclude {
+		if !strings.HasSuffix(exclude, string(filepathutil.OSPathSeparator)) {
+			exclude += string(filepathutil.OSPathSeparator)
+		}
 		if filepathutil.HasUnixPathPrefix(displayPath, exclude) {
 			return true
 		}

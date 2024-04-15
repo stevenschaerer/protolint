@@ -97,35 +97,23 @@ func TestNewProtoSet(t *testing.T) {
 	}
 }
 
-func TestCollectAllProtoFiles_Excludes(t *testing.T) {
+func TestCollectAllProtoFiles_Excludes_Base(t *testing.T) {
 	externalConfig := config.ExternalConfig{
 		Lint: config.Lint{
 			Directories: config.Directories{
 				Exclude: []string{
-					"aa/dir1",
-					"bb/dir2",
-					"cc/dir1/dir2",
+					"c/d/dir2",
 				},
 				ExcludePattern: []string{
-					"aaa/dir1",
-					"/bbb/dir1",
-					"ccc/dir1/**/",
-					"ddd/dir1/**",
-					"eee/**/dir2",
-					"fff/d*r1",
-					"ggg/d?r1",
-					"hhh/[cd]ir1",
-					"iii/{abc,dir,def}1",
+					"**/dir3/**/",
 				},
 			},
 			Files: config.Files{
 				Exclude: []string{
-					"path/to/file.proto",
-					"/path/to/file2.proto",
-					`path\to\file_windows.proto`,
+					"c/d/dir2/file1.proto",
 				},
 				ExcludePattern: []string{
-					"an/other/dir31/*.proto",
+					"**/fi*4.proto",
 				},
 			},
 		},
@@ -151,10 +139,14 @@ func TestCollectAllProtoFiles_Excludes(t *testing.T) {
 			joinedPath := strings.ReplaceAll(path.Join(p...), "/", string(os.PathSeparator))
 
 			// TODO: improve skipping dirs (by using a tree structure?)
+			skip := false
 			for skippedPath := range skipped {
-				if strings.HasPrefix(joinedPath, skippedPath) {
-					continue
+				if !skip && strings.HasPrefix(joinedPath, skippedPath) {
+					skip = true
 				}
+			}
+			if skip {
+				continue
 			}
 
 			var di fs.DirEntry
@@ -170,42 +162,141 @@ func TestCollectAllProtoFiles_Excludes(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		absWorkDirPath string
-		absPath        string
-		expected       []string
+		name      string
+		config    config.ExternalConfig
+		nExpected int
 	}{
 		{
-			name:           "",
-			absWorkDirPath: "a/b",
-			absPath:        "a/b/c/d",
-			expected:       []string{"dir1/dir2/file1.proto", "dir1/dir2/dir3/file1.proto", "dir1/dir2/dir3/file3.proto", "dir1/dir4/file1.proto", "dir1/dir4/file4.proto", "dir2/file1.proto"},
+			name:      "",
+			config:    config.ExternalConfig{},
+			nExpected: 6,
 		},
 		{
-			name:           "",
-			absWorkDirPath: "a",
-			absPath:        "a/aa",
-			expected:       []string{"dir2/file1.proto"},
-		},
-		{
-			name:           "",
-			absWorkDirPath: "a",
-			absPath:        "a/bb",
-			expected:       []string{"dir1/dir2/file1.proto", "dir1/dir2/dir3/file1.proto", "dir1/dir2/dir3/file3.proto", "dir1/dir4/file1.proto", "dir1/dir4/file4.proto"},
-		},
-		{
-			name:           "",
-			absWorkDirPath: "a",
-			absPath:        "a/cc",
-			expected:       []string{"dir1/dir4/file1.proto", "dir1/dir4/file4.proto", "dir2/file1.proto"},
+			name:      "",
+			config:    externalConfig,
+			nExpected: 2,
 		},
 	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			absWorkDirPath := strings.ReplaceAll(test.absWorkDirPath, "/", string(os.PathSeparator))
-			absPath := strings.ReplaceAll(test.absPath, "/", string(os.PathSeparator))
-			got, err := collectAllProtoFiles(absWorkDirPath, absPath, externalConfig, mockDirectoryWalker)
+			absWorkDirPath := strings.ReplaceAll("a/b", "/", string(os.PathSeparator))
+			absPath := strings.ReplaceAll("a/b/c/d", "/", string(os.PathSeparator))
+			got, err := collectAllProtoFiles(absWorkDirPath, absPath, test.config, mockDirectoryWalker)
+			if err != nil {
+				t.Error("Did not expect an error")
+			}
+
+			if len(got) != test.nExpected {
+				t.Errorf("got %v, but want %v", len(got), test.nExpected)
+			}
+		})
+	}
+}
+
+type ExcludeConfigInput struct {
+	dirExclude         string
+	dirExcludePattern  string
+	fileExclude        string
+	fileExcludePattern string
+}
+
+func TestCollectAllProtoFiles_Excludes(t *testing.T) {
+	createConfig := func(input ExcludeConfigInput) config.ExternalConfig {
+		conf := config.ExternalConfig{}
+		if input.dirExclude != "" {
+			conf.Lint.Directories.Exclude = []string{input.dirExclude}
+		}
+		if input.dirExcludePattern != "" {
+			conf.Lint.Directories.ExcludePattern = []string{input.dirExcludePattern}
+		}
+		if input.fileExclude != "" {
+			conf.Lint.Files.Exclude = []string{input.fileExclude}
+		}
+		if input.fileExcludePattern != "" {
+			conf.Lint.Files.ExcludePattern = []string{input.fileExcludePattern}
+		}
+		return conf
+	}
+
+	mockDirectoryWalker := func(root string, visit fs.WalkDirFunc) (err error) {
+		paths := [][]string{
+			{root, "dir1"},
+			{root, "dir1", "dir2"},
+			{root, "dir1", "dir2", "file1.proto"},
+			{root, "dir1", "dir2", "file2.txt"},
+			{root, "dir1", "dir2", "dir3"},
+			{root, "dir1", "dir2", "dir3", "file1.proto"},
+			{root, "dir1", "dir2", "dir3", "file3.proto"},
+			{root, "dir1", "dir4"},
+			{root, "dir1", "dir4", "file1.proto"},
+			{root, "dir1", "dir4", "file4.proto"},
+			{root, "dir2"},
+			{root, "dir2", "file1.proto"},
+		}
+		skipped := make(map[string]bool)
+		for _, p := range paths {
+			joinedPath := strings.ReplaceAll(path.Join(p...), "/", string(os.PathSeparator))
+
+			// TODO: improve skipping dirs (by using a tree structure?)
+			skip := false
+			for skippedPath := range skipped {
+				if !skip && strings.HasPrefix(joinedPath, skippedPath) {
+					skip = true
+				}
+			}
+			if skip {
+				continue
+			}
+
+			var di fs.DirEntry
+			err := visit(joinedPath, di, nil)
+			if errors.Is(err, fs.SkipDir) {
+				skipped[joinedPath] = true
+			} else if err != nil {
+				return err
+			}
+		}
+
+		return err
+	}
+
+	tests := []struct {
+		name     string
+		config   config.ExternalConfig
+		expected []string
+	}{
+		{
+			name:     "",
+			config:   createConfig(ExcludeConfigInput{}),
+			expected: []string{"dir1/dir2/file1.proto", "dir1/dir2/dir3/file1.proto", "dir1/dir2/dir3/file3.proto", "dir1/dir4/file1.proto", "dir1/dir4/file4.proto", "dir2/file1.proto"},
+		},
+		{
+			name:     "",
+			config:   createConfig(ExcludeConfigInput{dirExclude: "c/d/dir1"}),
+			expected: []string{"dir2/file1.proto"},
+		},
+	}
+	// add tests in case the test runs on windows
+	if os.PathSeparator == '\\' {
+		tests = append(tests, []struct {
+			name     string
+			config   config.ExternalConfig
+			expected []string
+		}{
+			{
+				name:     "",
+				config:   createConfig(ExcludeConfigInput{dirExclude: `c\d\dir1\dir2`}),
+				expected: []string{"dir1/dir4/file1.proto", "dir1/dir4/file4.proto", "dir2/file1.proto"},
+			},
+		}...)
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			absWorkDirPath := strings.ReplaceAll("a/b", "/", string(os.PathSeparator))
+			absPath := strings.ReplaceAll("a/b/c/d", "/", string(os.PathSeparator))
+			got, err := collectAllProtoFiles(absWorkDirPath, absPath, test.config, mockDirectoryWalker)
 			if err != nil {
 				t.Error("Did not expect an error")
 			}
