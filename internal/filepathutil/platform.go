@@ -43,6 +43,19 @@ func convertToOSPath(unixPath string) string {
 	)
 }
 
+// ConvertToUnixPath converts an operating system path to a unix path.
+func ConvertToUnixPath(osPath string) string {
+	if OSPathSeparator == unixPathSeparator {
+		return osPath
+	}
+	return strings.Replace(
+		osPath,
+		osPathSeparator(),
+		string(unixPathSeparator),
+		-1,
+	)
+}
+
 func osPathSeparator() string {
 	return string(OSPathSeparator)
 }

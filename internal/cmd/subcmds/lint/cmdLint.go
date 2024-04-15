@@ -34,12 +34,15 @@ func NewCmdLint(
 	stdout io.Writer,
 	stderr io.Writer,
 ) (*CmdLint, error) {
-	protoSet, err := file.NewProtoSet(flags.FilePaths)
+	externalConfig, err := config.GetExternalConfig(flags.ConfigPath, flags.ConfigDirPath)
 	if err != nil {
 		return nil, err
 	}
+	if externalConfig == nil {
+		externalConfig = &(config.ExternalConfig{})
+	}
 
-	externalConfig, err := config.GetExternalConfig(flags.ConfigPath, flags.ConfigDirPath)
+	protoSet, err := file.NewProtoSet(flags.FilePaths, *externalConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -49,9 +52,6 @@ func NewCmdLint(
 		} else {
 			log.Println("[INFO] protolint doesn't load a config file")
 		}
-	}
-	if externalConfig == nil {
-		externalConfig = &(config.ExternalConfig{})
 	}
 	lintConfig := NewCmdLintConfig(
 		*externalConfig,

@@ -1,9 +1,13 @@
 package file
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/yoheimuta/protolint/internal/linter/config"
 )
 
 // ProtoSet represents a set of .proto files.
@@ -14,8 +18,9 @@ type ProtoSet struct {
 // NewProtoSet creates a new ProtoSet.
 func NewProtoSet(
 	targetPaths []string,
+	config config.ExternalConfig,
 ) (ProtoSet, error) {
-	fs, err := collectAllProtoFilesFromArgs(targetPaths)
+	fs, err := collectAllProtoFilesFromArgs(targetPaths, config)
 	if err != nil {
 		return ProtoSet{}, err
 	}
@@ -33,8 +38,11 @@ func (s ProtoSet) ProtoFiles() []ProtoFile {
 	return s.protoFiles
 }
 
+type DirectoryWalker = func(string, fs.WalkDirFunc) error
+
 func collectAllProtoFilesFromArgs(
 	targetPaths []string,
+	config config.ExternalConfig,
 ) ([]ProtoFile, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -56,7 +64,7 @@ func collectAllProtoFilesFromArgs(
 			return nil, err
 		}
 
-		f, err := collectAllProtoFiles(absCwd, absTarget)
+		f, err := collectAllProtoFiles(absCwd, absTarget, config, filepath.WalkDir)
 		if err != nil {
 			return nil, err
 		}
@@ -68,32 +76,39 @@ func collectAllProtoFilesFromArgs(
 func collectAllProtoFiles(
 	absWorkDirPath string,
 	absPath string,
+	config config.ExternalConfig,
+	walker DirectoryWalker,
 ) ([]ProtoFile, error) {
-	var fs []ProtoFile
+	var files []ProtoFile
 
-	err := filepath.Walk(
+	err := walker(
 		absPath,
-		func(path string, info os.FileInfo, err error) error {
+		func(path string, info fs.DirEntry, err error) error {
 			if err != nil {
 				return err
-			}
-			if filepath.Ext(path) != ".proto" {
-				return nil
 			}
 
 			displayPath, err := filepath.Rel(absWorkDirPath, path)
 			if err != nil {
 				displayPath = path
 			}
-			displayPath = filepath.Clean(displayPath)
-			fs = append(fs, NewProtoFile(path, displayPath))
+			if config.Lint.Directories.ShouldSkip(displayPath) {
+				return fs.SkipDir
+			}
+			if filepath.Ext(path) != ".proto" {
+				return nil
+			}
+			if config.Lint.Files.ShouldSkip(displayPath) {
+				return nil
+			}
+			files = append(files, NewProtoFile(path, displayPath))
 			return nil
 		},
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.SkipDir) {
 		return nil, err
 	}
-	return fs, nil
+	return files, nil
 }
 
 // absClean returns the cleaned absolute path of the given path.
